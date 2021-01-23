@@ -18,12 +18,12 @@ func TestWithConfigFieldFromGroup(t *testing.T) {
 
 	var s *S
 	app := fxtest.New(t,
-		fxx.ProvideConfigFile("a", func(in interface{}) error {
+		fxx.ProvideConfig("a", func(in interface{}) error {
 			return json.Unmarshal([]byte(`{
 				"s": { "value": "hello world" }
 			}`), in)
 		}),
-		fxx.WithConfigField(`json:"s"`, &S{}),
+		fxx.ExtractConfigField(`json:"s"`, &S{}),
 		fx.Invoke(func(ss *S) {
 			s = ss
 		}))
@@ -40,22 +40,22 @@ func TestWithConfigFieldFromName(t *testing.T) {
 
 	var s *S
 	app := fxtest.New(t,
-		fxx.ProvideConfigFile("a", func(in interface{}) error {
+		fxx.ProvideConfig("a", func(in interface{}) error {
 			return json.Unmarshal([]byte(`{
 				"s": { "value": "oops" }
 			}`), in)
 		}),
-		fxx.ProvideConfigFile("b", func(in interface{}) error {
+		fxx.ProvideConfig("b", func(in interface{}) error {
 			return json.Unmarshal([]byte(`{
 				"s": { "value": "hello world" }
 			}`), in)
 		}),
-		fxx.ProvideConfigFile("c", func(in interface{}) error {
+		fxx.ProvideConfig("c", func(in interface{}) error {
 			return json.Unmarshal([]byte(`{
 				"s": { "value": "not ok" }
 			}`), in)
 		}),
-		fxx.WithConfigField(`json:"s"`, &S{}, fxx.WithConfigFieldFromFile("b")),
+		fxx.ExtractConfigField(`json:"s"`, &S{}, fxx.ExtractConfigFieldFromFile("b")),
 		fx.Invoke(func(ss *S) {
 			s = ss
 		}))

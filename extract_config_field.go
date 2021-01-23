@@ -17,26 +17,47 @@ type Unmarshal func(interface{}) error
 const configFileAnnotationPrefix = "github.com/joesonw/fxx.ProvideConfigFile/"
 const configFileGroup = "github.com/joesonw/fxx.ProvideConfigFile"
 
-func provideConfigFileFromDisk(file string, unmarshal func([]byte, interface{}) error) fx.Option {
+type provideConfigFileOptions struct {
+	name string
+}
+
+type ProvideConfigFileOption func(o *provideConfigFileOptions)
+
+func ProvideConfigFileWithName(name string) ProvideConfigFileOption {
+	return func(o *provideConfigFileOptions) {
+		o.name = name
+	}
+}
+
+func provideConfigFileFromDisk(file string, unmarshal func([]byte, interface{}) error, options []ProvideConfigFileOption) fx.Option {
 	b, err := ioutil.ReadFile(file)
 	if err != nil {
 		return fx.Error(fmt.Errorf("unable to read file '%s': %w", file, err))
 	}
+	o := &provideConfigFileOptions{
+		name: file,
+	}
+	for i := range options {
+		options[i](o)
+	}
 
-	return ProvideConfigFile(file, func(in interface{}) error {
+	return ProvideConfig(o.name, func(in interface{}) error {
 		return unmarshal(b, in)
 	})
 }
 
-func ProvideJSONConfigFile(file string) fx.Option {
-	return provideConfigFileFromDisk(file, json.Unmarshal)
+// ProvideJSONConfigFile an helper to ProvideConfigFile for json files, you only need to specify path to file here
+func ProvideJSONConfigFile(path string, options ...ProvideConfigFileOption) fx.Option {
+	return provideConfigFileFromDisk(path, json.Unmarshal, options)
 }
 
-func ProvideYAMLConfigFile(file string) fx.Option {
-	return provideConfigFileFromDisk(file, yaml.Unmarshal)
+// ProvideYAMLConfigFile an helper to ProvideConfigFile for yaml files, you only need to specify path to file here
+func ProvideYAMLConfigFile(path string, options ...ProvideConfigFileOption) fx.Option {
+	return provideConfigFileFromDisk(path, yaml.Unmarshal, options)
 }
 
-func ProvideConfigFile(file string, unmarshal Unmarshal) fx.Option {
+// ProvideConfig inject an unmarshaler with name, which can be specifically used by ExtractConfigFieldFromFile
+func ProvideConfig(file string, unmarshal Unmarshal) fx.Option {
 	return fx.Options(
 		fx.Provide(fx.Annotated{
 			Name: configFileAnnotationPrefix + file,
@@ -53,20 +74,36 @@ func ProvideConfigFile(file string, unmarshal Unmarshal) fx.Option {
 	)
 }
 
-type withConfigFieldOptions struct {
+type extractConfigFieldOptions struct {
 	file *string
 }
 
-type WithConfigFieldOption func(o *withConfigFieldOptions)
+type ExtractConfigFieldOption func(o *extractConfigFieldOptions)
 
-func WithConfigFieldFromFile(file string) WithConfigFieldOption {
-	return func(o *withConfigFieldOptions) {
+func ExtractConfigFieldFromFile(file string) ExtractConfigFieldOption {
+	return func(o *extractConfigFieldOptions) {
 		o.file = &file
 	}
 }
 
-func WithConfigField(tag string, in interface{}, options ...WithConfigFieldOption) fx.Option {
-	o := &withConfigFieldOptions{}
+// For example,
+//
+//  type MySQLConfig struct {
+//  	Address  string `json:"address"`
+//  	User     string `json:"user"`
+//  	Password string `json:"password"`
+//  }
+//  fx.New(
+//    fxx.ProvideJSONConfigFile("/etc/config/myapp.json"),
+//    fxx.ExtractConfigField(`json:"mysql"`, &MySQLConfig{}),
+//    fx.Provide(func (config *MySQLConfig) (*sql.DB, error) {
+//    	return sql.Open("mysql", fmt.Sprintf("mysql://%s:%s@tcp(%s)", config.User, config.Password, config.Address))
+//    }),
+//  )
+//
+// ExtractConfigField inject given struct with value from a field of a config file
+func ExtractConfigField(tag string, in interface{}, options ...ExtractConfigFieldOption) fx.Option {
+	o := &extractConfigFieldOptions{}
 	for i := range options {
 		options[i](o)
 	}
