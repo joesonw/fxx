@@ -57,10 +57,10 @@ func ProvideYAMLConfigFile(path string, options ...ProvideConfigFileOption) fx.O
 }
 
 // ProvideConfig inject an unmarshaler with name, which can be specifically used by ExtractConfigFieldFromFile
-func ProvideConfig(file string, unmarshal Unmarshal) fx.Option {
+func ProvideConfig(name string, unmarshal Unmarshal) fx.Option {
 	return fx.Options(
 		fx.Provide(fx.Annotated{
-			Name: configFileAnnotationPrefix + file,
+			Name: configFileAnnotationPrefix + name,
 			Target: func() Unmarshal {
 				return unmarshal
 			},
