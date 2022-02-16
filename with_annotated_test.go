@@ -98,7 +98,6 @@ func TestWithAnnotatedError(t *testing.T) {
 
 func TestWithAnnotatedOptional(t *testing.T) {
 	type a struct {
-		name string
 	}
 
 	t.Run("Not Provided", func(t *testing.T) {
