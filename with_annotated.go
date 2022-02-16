@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"go.uber.org/fx"
 )
@@ -11,13 +12,22 @@ import (
 // Annotation this will be passed to WithAnnotated to identify which to be injected
 type Annotation interface {
 	isAnnotation()
+	IsOptional() Annotation
 }
 
 type groupAnnotation struct {
-	group string
+	group    string
+	optional bool
 }
 
 func (groupAnnotation) isAnnotation() {}
+
+func (a groupAnnotation) IsOptional() Annotation {
+	return groupAnnotation{
+		group:    a.group,
+		optional: true,
+	}
+}
 
 // GroupAnnotation use group Annotated inject
 func GroupAnnotation(group string) Annotation {
@@ -27,10 +37,18 @@ func GroupAnnotation(group string) Annotation {
 }
 
 type nameAnnotation struct {
-	name string
+	name     string
+	optional bool
 }
 
 func (nameAnnotation) isAnnotation() {}
+
+func (a nameAnnotation) IsOptional() Annotation {
+	return nameAnnotation{
+		name:     a.name,
+		optional: true,
+	}
+}
 
 // NameAnnotation use name Annotated inject
 func NameAnnotation(name string) Annotation {
@@ -91,17 +109,25 @@ func WithAnnotated(annos ...Annotation) func(interface{}) interface{} {
 				Name: name,
 				Type: userFuncType.In(i),
 			}
+			
 			if i < numNames { // namedArguments
-				tag := ""
+				var tags []string
+				optional := false
 				annos[i].isAnnotation()
 				switch anno := annos[i].(type) {
 				case groupAnnotation:
-					tag = fmt.Sprintf(`group:"%s"`, anno.group)
+					tags = append(tags, fmt.Sprintf(`group:"%s"`, anno.group))
+					optional = anno.optional
 				case nameAnnotation:
-					tag = fmt.Sprintf(`name:"%s"`, anno.name)
+					tags = append(tags, fmt.Sprintf(`name:"%s"`, anno.name))
+					optional = anno.optional
 				}
 
-				field.Tag = reflect.StructTag(tag)
+				if optional {
+					tags = append(tags, `optional:"true"`)
+				}
+
+				field.Tag = reflect.StructTag(strings.Join(tags, " "))
 			}
 			digInStructFields = append(digInStructFields, field)
 		}

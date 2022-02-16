@@ -1,6 +1,7 @@
 package fxx_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -92,5 +93,37 @@ func TestWithAnnotatedError(t *testing.T) {
 		err := app.Err()
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "WithAnnotated returned function must be called with a function")
+	})
+}
+
+func TestWithAnnotatedOptional(t *testing.T) {
+	type a struct {
+		name string
+	}
+
+	t.Run("Not Provided", func(t *testing.T) {
+		app := fx.New(
+			fx.Logger(fxtest.NewTestPrinter(t)),
+			fx.Invoke(fxx.WithAnnotated(fxx.NameAnnotation("foo"))(func(aa *a) error {
+				return nil
+			})),
+		)
+		err := app.Err()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "missing dependencies for function")
+	})
+
+	t.Run("Optional", func(t *testing.T) {
+		app := fx.New(
+			fx.Logger(fxtest.NewTestPrinter(t)),
+			fx.Invoke(fxx.WithAnnotated(fxx.NameAnnotation("foo").IsOptional())(func(aa *a) error {
+				if aa != nil {
+					return fmt.Errorf("not nil")
+				}
+				return nil
+			})),
+		)
+		err := app.Err()
+		assert.Nil(t, err)
 	})
 }
